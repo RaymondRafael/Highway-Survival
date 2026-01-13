@@ -197,3 +197,55 @@ function showNotif(text, color) {
     elPowerupNotif.style.opacity = 1;
     setTimeout(() => { elPowerupNotif.style.opacity = 0; }, 2000);
 }
+
+/* =================================================
+   6. LOAD ASSETS
+================================================= */
+function loadPlayer(file) {
+    loader.load(`/img/${file}`, gltf => {
+        player = gltf.scene;
+        const box = new THREE.Box3().setFromObject(player);
+        const size = new THREE.Vector3(); box.getSize(size);
+        player.scale.setScalar(2 / Math.max(size.x, size.y, size.z));
+        player.position.set(0, 0, 0);
+        player.rotation.y = Math.PI;
+        player.traverse(n => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; }});
+        scene.add(player);
+        checkReady();
+    });
+}
+
+function loadEnemyTemplate() {
+    loader.load("/img/musuh.glb", gltf => {
+        enemyTemplate = gltf.scene;
+        const box = new THREE.Box3().setFromObject(enemyTemplate);
+        const size = new THREE.Vector3(); box.getSize(size);
+        enemyTemplate.scale.setScalar(2 / Math.max(size.x, size.y, size.z));
+        enemyTemplate.traverse(n => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; }});
+        checkReady();
+    });
+}
+
+function loadGiftTemplate() {
+    loader.load("/img/gift.glb", gltf => {
+        giftTemplate = gltf.scene;
+        const box = new THREE.Box3().setFromObject(giftTemplate);
+        const size = new THREE.Vector3(); box.getSize(size);
+        giftTemplate.scale.setScalar(1.5 / Math.max(size.x, size.y, size.z));
+        giftTemplate.traverse(n => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; }});
+        checkReady();
+    }, undefined, (err) => {
+        console.error("Gagal load gift.glb", err);
+        const geometry = new THREE.BoxGeometry(1, 1, 1);
+        const material = new THREE.MeshPhongMaterial({ color: 0xffff00 });
+        giftTemplate = new THREE.Mesh(geometry, material);
+        checkReady();
+    });
+}
+
+function checkReady() {
+    if (player && enemyTemplate && giftTemplate) startCountdown();
+}
+
+loadEnemyTemplate();
+loadGiftTemplate();
