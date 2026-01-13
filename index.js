@@ -299,3 +299,150 @@ setInterval(() => {
     scene.add(p);
     powerups.push(p);
 }, 10000); 
+
+/* =================================================
+   8. INPUT
+================================================= */
+document.addEventListener("keydown", e => {
+    if (e.key.toLowerCase() === "p" && isGameRunning) {
+        isPaused = !isPaused;
+        if(elPause) elPause.style.display = isPaused ? "block" : "none";
+    }
+    if (!isPaused && isGameRunning) {
+        if (e.key === "ArrowLeft" && currentLane > -1) currentLane--;
+        if (e.key === "ArrowRight" && currentLane < 1) currentLane++;
+        targetX = currentLane * 2;
+    }
+});
+
+/* =================================================
+   9. MAIN LOOP (PAKAI AI)
+================================================= */
+function animate() {
+    requestAnimationFrame(animate);
+    renderer.render(scene, camera);
+    if (!isGameRunning || isPaused || isGameOver) return;
+
+    // --- LINGKUNGAN ---
+    roadLines.forEach(l => { l.position.z += totalSpeed; if (l.position.z > 10) l.position.z = -90; });
+    trees.forEach(t => {
+        t.position.z += totalSpeed;
+        if (t.position.z > 20) {
+            t.position.z = -80 - Math.random() * 20;
+            t.position.x = Math.random() > 0.5 ? -8 - Math.random() * 10 : 8 + Math.random() * 10;
+        }
+    });
+
+    // --- PLAYER ANIMATION (KEMBALI KE STANDAR) ---
+    if (player) {
+        const deltaX = targetX - player.position.x;
+        
+        // Gerakan
+        player.position.x += deltaX * 0.15; 
+
+        // Rotasi Belok (Subtle / Tidak Dramatis)
+        player.rotation.y = Math.PI - (deltaX * 0.1); 
+        
+        // Body Roll (Sedikit saja)
+        player.rotation.z = (deltaX * 0.05);
+
+        // Getaran Mesin
+        player.position.y = Math.sin(Date.now() * 0.01) * 0.02;
+
+        // Kamera Dinamis (Follow) - Tanpa rotasi miring
+        camera.position.x += (player.position.x * 0.3 - camera.position.x) * 0.05;
+        camera.rotation.z = 0; // Pastikan kamera tegak
+    }
+
+    // --- POWERUP LOGIC ---
+    powerups.forEach((p, index) => {
+        p.position.z += totalSpeed;
+        p.rotation.y += 0.05; 
+        p.position.y = 1 + Math.sin(Date.now() * 0.005) * 0.2;
+
+        if (player && Math.abs(p.position.z - player.position.z) < 3.0 && Math.abs(p.position.x - player.position.x) < 1.2) {
+            if (Math.random() > 0.5) {
+                activePowerup = 'speed';
+                speedBoost = 0.6; 
+                showNotif("⚡ SPEED BOOST! (5s)", "#ffff00"); 
+                powerupEndTime = Date.now() + 5000; 
+            } else {
+                activePowerup = 'shield';
+                showNotif("🛡️ SHIELD ACTIVE! (10s)", "#00ffff"); 
+                powerupEndTime = Date.now() + 10000; 
+            }
+            updateTotalSpeed();
+            scene.remove(p);
+            powerups.splice(index, 1);
+        } 
+        else if (p.position.z > 20) { // Hilang di belakang layar
+            scene.remove(p);
+            powerups.splice(index, 1);
+        }
+    });
+
+    if (activePowerup && Date.now() > powerupEndTime) {
+        activePowerup = null;
+        speedBoost = 0; 
+        updateTotalSpeed();
+    }
+
+    // --- ENEMY LOGIC (PERBAIKAN: TIDAK HILANG SAAT LEWAT) ---
+    for (let i = enemies.length - 1; i >= 0; i--) {
+        const e = enemies[i];
+        e.position.z += totalSpeed;
+        e.position.y = 0.5 + Math.sin(Date.now() * 0.01 + i) * 0.02;
+
+        // 1. CEK TABRAKAN
+        if (player && Math.abs(e.position.z - player.position.z) < 2.5 && Math.abs(e.position.x - player.position.x) < 0.8) {
+            
+            if (activePowerup === 'shield') {
+                scene.remove(e);
+                enemies.splice(i, 1);
+                showNotif("🛡️ BLOCKED!", "#00ffff");
+                camera.position.y = 5.5; 
+                setTimeout(() => { camera.position.y = 5; }, 50);
+                continue;
+            }
+
+            lives--;
+            if(elNyawa) elNyawa.innerText = "❤️".repeat(Math.max(0, lives));
+            
+            camera.position.x = (Math.random() - 0.5) * 3.0;
+            camera.position.y = 5 + (Math.random() - 0.5) * 1.5;
+            setTimeout(() => { camera.position.x = 0; camera.position.y = 5; }, 80);
+
+            scene.remove(e);
+            enemies.splice(i, 1);
+
+            if (lives <= 0) {
+                isGameOver = true;
+                if(elGameOver) elGameOver.style.display = "block";
+            }
+        } 
+        
+        // 2. CEK SKOR (Hanya tambah skor, JANGAN HAPUS MOBIL)
+        // Gunakan flag 'hasPassed' agar skor tidak bertambah berkali-kali
+        else if (e.position.z > player.position.z + 2 && !e.hasPassed) {
+            score += 10;
+            if(elSkor) elSkor.innerText = score;
+            
+            // Tandai sudah lewat
+            e.hasPassed = true;
+
+            // Leveling
+            const newLevel = Math.floor(score / 50);
+            if (baseSpeedLevel < 1.5) { 
+                baseSpeedLevel += 0.012; 
+                updateTotalSpeed();
+            }
+        }
+
+        // 3. HAPUS MOBIL JIKA SUDAH JAUH DI BELAKANG
+        if (e.position.z > 20) { // Angka 20 artinya sudah jauh di belakang kamera
+            scene.remove(e);
+            enemies.splice(i, 1);
+        }
+    }
+}
+animate();
