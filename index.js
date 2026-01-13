@@ -249,3 +249,53 @@ function checkReady() {
 
 loadEnemyTemplate();
 loadGiftTemplate();
+
+/* =================================================
+   7. GAME LOGIC
+================================================= */
+function startCountdown() {
+    let c = 3;
+    if(elCountdown) { 
+        elCountdown.style.display = "block"; 
+        elCountdown.style.color = "yellow"; 
+        elCountdown.innerText = c; 
+    }
+    const t = setInterval(() => {
+        c--;
+        if (c > 0) {
+            elCountdown.innerText = c;
+        } 
+        else if (c === 0) {
+            elCountdown.innerText = "GO!";
+            elCountdown.style.color = "#00ff00"; 
+        } 
+        else { 
+            clearInterval(t); 
+            elCountdown.style.display = "none"; 
+            isGameRunning = true; 
+        }
+    }, 1000);
+}
+
+// SPAWN ENEMY
+setInterval(() => {
+    if (!isGameRunning || isPaused || isGameOver || !enemyTemplate) return;
+    const e = enemyTemplate.clone();
+    e.position.set((Math.floor(Math.random() * 3) - 1) * 2, 0.5, -80);
+    e.rotation.y = 0; 
+    
+    // Properti untuk menandai apakah sudah dilewati (untuk skor)
+    e.hasPassed = false; 
+
+    scene.add(e);
+    enemies.push(e);
+}, 1300); 
+
+// SPAWN POWERUP
+setInterval(() => {
+    if (!isGameRunning || isPaused || isGameOver || !giftTemplate) return;
+    const p = giftTemplate.clone();
+    p.position.set((Math.floor(Math.random() * 3) - 1) * 2, 1, -100);
+    scene.add(p);
+    powerups.push(p);
+}, 10000); 
