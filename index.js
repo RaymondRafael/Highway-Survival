@@ -40,7 +40,7 @@ grass.rotation.x = -Math.PI / 2;
 grass.position.z = -400;
 grass.position.y = -0.1;
 grass.receiveShadow = true;
-scene.add(grass);
+scene.add(grass);   
 
 // MARKA JALAN
 const roadLines = [];
