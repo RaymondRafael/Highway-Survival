@@ -98,3 +98,102 @@ let isGameRunning = false;
 let isPaused = false;
 let isGameOver = false;
 
+/* =================================================
+   4. UI ELEMENTS
+================================================= */
+const elNyawa = document.getElementById("nyawa");
+const elSkor = document.getElementById("skor");
+const elCountdown = document.getElementById("countdown");
+const elGameOver = document.getElementById("game-over");
+const elPause = document.getElementById("pause-menu");
+const elCarSelect = document.getElementById("car-select");
+
+// ELEMEN NOTIFIKASI POWERUP
+let elPowerupNotif = document.getElementById("powerup-notif");
+if (!elPowerupNotif) {
+    elPowerupNotif = document.createElement("div");
+    elPowerupNotif.style.position = "absolute";
+    elPowerupNotif.style.top = "30%";
+    elPowerupNotif.style.width = "100%";
+    elPowerupNotif.style.textAlign = "center";
+    elPowerupNotif.style.color = "yellow";
+    elPowerupNotif.style.fontSize = "40px";
+    elPowerupNotif.style.fontWeight = "bold";
+    elPowerupNotif.style.textShadow = "3px 3px 6px #000";
+    elPowerupNotif.style.fontFamily = "sans-serif";
+    elPowerupNotif.style.opacity = "0";
+    elPowerupNotif.style.transition = "opacity 0.5s";
+    elPowerupNotif.style.zIndex = "15";
+    document.body.appendChild(elPowerupNotif);
+}
+
+// ELEMEN INFORMASI KONTROL
+let elInfo = document.getElementById("game-info");
+if (!elInfo) {
+    elInfo = document.createElement("div");
+    elInfo.style.position = "absolute";
+    elInfo.style.bottom = "20px";
+    elInfo.style.left = "20px";
+    elInfo.style.color = "white";
+    elInfo.style.fontFamily = "sans-serif";
+    elInfo.style.fontSize = "14px";
+    elInfo.style.backgroundColor = "rgba(0,0,0,0.5)";
+    elInfo.style.padding = "15px";
+    elInfo.style.borderRadius = "8px";
+    elInfo.style.zIndex = "5";
+    elInfo.innerHTML = `
+        <strong style="font-size:16px">🎮 KONTROL</strong><br>
+        ⬅️ ➡️ : Pindah Jalur<br>
+        🅿️ : Pause Game
+    `;
+    document.body.appendChild(elInfo);
+}
+
+/* =================================================
+   5. RESET & SELECT CAR
+================================================= */
+window.selectCar = (file) => {
+    if(elCarSelect) elCarSelect.style.display = "none";
+    resetGame();
+    loadPlayer(file);
+};
+
+function resetGame() {
+    enemies.forEach(e => scene.remove(e)); enemies = [];
+    powerups.forEach(p => scene.remove(p)); powerups = [];
+    if (player) { scene.remove(player); player = null; }
+
+    score = 0;
+    lives = 3;
+    currentLane = 0;
+    targetX = 0;
+    
+    // Reset Speed
+    baseSpeedLevel = 0.5;
+    speedBoost = 0;
+    updateTotalSpeed();
+
+    activePowerup = null;
+    isGameRunning = false;
+    isPaused = false;
+    isGameOver = false;
+
+    if(elSkor) elSkor.innerText = "0";
+    if(elNyawa) elNyawa.innerText = "❤️❤️❤️";
+    if(elGameOver) elGameOver.style.display = "none";
+    
+    // Reset Kamera
+    camera.position.set(0, 5, 12);
+    camera.rotation.z = 0; 
+}
+
+function updateTotalSpeed() {
+    totalSpeed = baseSpeedLevel + speedBoost;
+}
+
+function showNotif(text, color) {
+    elPowerupNotif.innerText = text;
+    elPowerupNotif.style.color = color;
+    elPowerupNotif.style.opacity = 1;
+    setTimeout(() => { elPowerupNotif.style.opacity = 0; }, 2000);
+}

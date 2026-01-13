@@ -1,0 +1,161 @@
+@import url('https://fonts.googleapis.com/css2?family=Russo+One&display=swap');
+
+body {
+    margin: 0;
+    overflow: hidden;
+    font-family: 'Russo One', sans-serif;
+    /* Font Arcade Keren */
+    background-color: #1a1a1a;
+}
+
+/* HUD (Skor & Nyawa) */
+#hud {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    color: white;
+    font-size: 24px;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+    z-index: 10;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 10px 20px;
+    border-radius: 10px;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+/* --- CAR SELECTION MENU (BAGUS) --- */
+#car-select {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    /* Background Gradasi Biru Keren */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 50;
+}
+
+.menu-title {
+    color: #fff;
+    font-size: 60px;
+    text-transform: uppercase;
+    letter-spacing: 5px;
+    text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+    margin-bottom: 40px;
+}
+
+.cards-container {
+    display: flex;
+    gap: 30px;
+}
+
+.car-card {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+    width: 250px;
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.car-card:hover {
+    transform: translateY(-10px) scale(1.05);
+    background: rgba(255, 255, 255, 0.2);
+    border-color: #00d2ff;
+    box-shadow: 0 0 30px #00d2ff;
+}
+
+.car-image {
+    width: 100%;
+    height: 140px;
+    object-fit: contain;
+    margin-bottom: 15px;
+    filter: drop-shadow(0 5px 5px rgba(0, 0, 0, 0.5));
+}
+
+.car-name {
+    color: white;
+    font-size: 20px;
+    margin-bottom: 5px;
+}
+
+.car-stats {
+    color: #ccc;
+    font-size: 12px;
+    font-family: sans-serif;
+}
+
+/* Tampilan Game Over */
+#game-over {
+    display: none;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #ff3333;
+    font-size: 60px;
+    text-shadow: 4px 4px 0 #000;
+    text-align: center;
+    z-index: 20;
+    background: rgba(0, 0, 0, 0.8);
+    padding: 40px;
+    border-radius: 20px;
+    border: 4px solid #ff3333;
+}
+
+/* Tampilan Countdown (3 2 1 GO) */
+#countdown {
+    display: none;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #ffd700;
+    font-size: 150px;
+    text-shadow: 5px 5px 0 #000, 0 0 30px #ffd700;
+    z-index: 20;
+}
+
+/* Tampilan Pause */
+#pause-menu {
+    display: none;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-size: 50px;
+    background: rgba(0, 0, 0, 0.8);
+    padding: 40px 80px;
+    border-radius: 20px;
+    text-align: center;
+    z-index: 20;
+    border: 2px solid white;
+}
+
+/* Tombol Main Lagi */
+.btn-restart {
+    background: #ff3333;
+    color: white;
+    border: none;
+    padding: 15px 30px;
+    font-size: 24px;
+    font-family: 'Russo One', sans-serif;
+    cursor: pointer;
+    margin-top: 20px;
+    border-radius: 10px;
+    transition: 0.2s;
+}
+
+.btn-restart:hover {
+    background: #cc0000;
+    transform: scale(1.1);
+}
