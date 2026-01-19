@@ -2,15 +2,16 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
 /* =================================================
-    1. BASIC SETUP
+   1. BASIC SETUP (ENVIRONMENT 3D)
 ================================================= */
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xa0d8ef);
-scene.fog = new THREE.Fog(0xa0d8ef, 10, 80);
+scene.fog = new THREE.Fog(0xa0d8ef, 20, 90); // Kabut agar environment menyatu
 
-const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
-camera.position.set(0, 5, 12);
-camera.lookAt(0, 0, -5);
+// Kamera Awal (Posisi Showroom)
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 200);
+camera.position.set(0, 2, 7); 
+camera.lookAt(0, 0.5, 0);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -19,62 +20,66 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
 /* =================================================
-    2. LIGHT & ENV
+   2. LIGHTING (HIGH QUALITY)
 ================================================= */
-scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-const sun = new THREE.DirectionalLight(0xffffff, 1);
-sun.position.set(10, 20, 10);
-sun.castShadow = true;
-scene.add(sun);
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+scene.add(ambientLight);
 
-// JALAN
-const road = new THREE.Mesh(new THREE.PlaneGeometry(12, 1000), new THREE.MeshPhongMaterial({ color: 0x333333 }));
-road.rotation.x = -Math.PI / 2;
-road.position.z = -400;
-road.receiveShadow = true;
-scene.add(road);
-
-// RUMPUT
-const grass = new THREE.Mesh(new THREE.PlaneGeometry(200, 1000), new THREE.MeshLambertMaterial({ color: 0x2ecc71 }));
-grass.rotation.x = -Math.PI / 2;
-grass.position.z = -400;
-grass.position.y = -0.1;
-grass.receiveShadow = true;
-scene.add(grass);   
-
-// MARKA JALAN
-const roadLines = [];
-for (let i = 0; i < 20; i++) {
-    [-1, 1].forEach(x => {
-        const l = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 3), new THREE.MeshBasicMaterial({ color: 0xffffff }));
-        l.rotation.x = -Math.PI / 2;
-        l.position.set(x, 0.02, -i * 5);
-        scene.add(l);
-        roadLines.push(l);
-    });
-}
-
-// POHON
-const trees = [];
-function createTree() {
-    const g = new THREE.Group();
-    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.4, 1.5, 8), new THREE.MeshLambertMaterial({ color: 0x8b4513 }));
-    trunk.position.y = 0.75; trunk.castShadow = true; g.add(trunk);
-    const leaves = new THREE.Mesh(new THREE.ConeGeometry(1.5, 3, 8), new THREE.MeshLambertMaterial({ color: 0x228b22 }));
-    leaves.position.y = 2.5; leaves.castShadow = true; g.add(leaves);
-    return g;
-}
-for (let i = 0; i < 40; i++) {
-    const t = createTree();
-    t.position.set(Math.random() > 0.5 ? -8 - Math.random() * 10 : 8 + Math.random() * 10, 0, -Math.random() * 100);
-    scene.add(t);
-    trees.push(t);
-}
+const sunLight = new THREE.DirectionalLight(0xffffff, 1.2);
+sunLight.position.set(20, 50, 20);
+sunLight.castShadow = true;
+sunLight.shadow.mapSize.width = 2048;
+sunLight.shadow.mapSize.height = 2048;
+sunLight.shadow.camera.left = -50;
+sunLight.shadow.camera.right = 50;
+sunLight.shadow.camera.top = 50;
+sunLight.shadow.camera.bottom = -50;
+scene.add(sunLight);
 
 /* =================================================
-    3. GAME VARIABLES
+   3. GAME VARIABLES & CAR DATA
 ================================================= */
 const loader = new GLTFLoader();
+let gameState = 'MENU'; 
+
+// --- DATA STATISTIK MOBIL ---
+const carList = [
+    { 
+        file: 'mobil.glb', 
+        name: 'LAMBORGHINI', 
+        stats: 'Speed: ⭐⭐⭐⭐⭐ | Handling: ⭐⭐⭐',
+        speedMult: 1.3,  // Sangat Cepat
+        handlingVal: 0.1 // Berat/Stabil
+    },
+    { 
+        file: 'mobil2.glb', 
+        name: 'MAZDA RX-7', 
+        stats: 'Speed: ⭐⭐⭐⭐ | Handling: ⭐⭐⭐⭐⭐',
+        speedMult: 1.1,  // Cukup Cepat
+        handlingVal: 0.2 // Responsif
+    },
+    { 
+        file: 'mobil3.glb', 
+        name: 'TRUENO AE86', 
+        stats: 'Drift: ⭐⭐⭐⭐⭐⭐ | Speed: ⭐⭐⭐',
+        speedMult: 0.9,  // Pelan
+        handlingVal: 0.3 // Sangat Licin/Lincah
+    }
+];
+let currentCarIndex = 0;
+
+// Stats Aktif
+let activeSpeedMult = 1.0;
+let activeHandling = 0.15;
+
+// Environment Variables
+let mapTemplate, forestTemplate;
+let activeMapSegments = [];
+const MAP_LENGTH = 30; 
+const NUM_SEGMENTS = 7; 
+const LANE_WIDTH = 1.4; 
+
+// Game Objects
 let player = null;
 let enemyTemplate = null;
 let giftTemplate = null;
@@ -86,10 +91,11 @@ let targetX = 0;
 let score = 0;
 let lives = 3;
 
-// --- SETTINGAN KECEPATAN (DIPERCEPAT) ---
-let baseSpeedLevel = 0.5; 
+// Logika Speed
+let baseSpeedLevel = 0.4; 
 let speedBoost = 0;      
-let totalSpeed = 0.5;    
+let totalSpeed = 0.4;    
+let currentLevel = 0;
 
 let activePowerup = null;
 let powerupEndTime = 0;
@@ -99,16 +105,18 @@ let isPaused = false;
 let isGameOver = false;
 
 /* =================================================
-   4. UI ELEMENTS
+   4. UI & INTERACTION
 ================================================= */
 const elNyawa = document.getElementById("nyawa");
 const elSkor = document.getElementById("skor");
 const elCountdown = document.getElementById("countdown");
 const elGameOver = document.getElementById("game-over");
 const elPause = document.getElementById("pause-menu");
-const elCarSelect = document.getElementById("car-select");
+const elHud = document.getElementById("hud");
+const elMainMenu = document.getElementById("main-menu");
+const elCarName = document.getElementById("car-name-display");
+const elCarStats = document.getElementById("car-stats-display");
 
-// ELEMEN NOTIFIKASI POWERUP
 let elPowerupNotif = document.getElementById("powerup-notif");
 if (!elPowerupNotif) {
     elPowerupNotif = document.createElement("div");
@@ -127,7 +135,20 @@ if (!elPowerupNotif) {
     document.body.appendChild(elPowerupNotif);
 }
 
-// ELEMEN INFORMASI KONTROL
+// Mouse Interaction (Rotate di Showroom)
+let isDragging = false;
+let previousMousePosition = { x: 0, y: 0 };
+document.addEventListener('mousedown', () => { isDragging = true; });
+document.addEventListener('mouseup', () => { isDragging = false; });
+document.addEventListener('mousemove', (e) => {
+    if (isDragging && gameState === 'MENU' && player) {
+        const deltaMove = { x: e.offsetX - previousMousePosition.x };
+        player.rotation.y += deltaMove.x * 0.01;
+    }
+    previousMousePosition = { x: e.offsetX, y: e.offsetY };
+});
+
+// ELEMEN INFORMASI KONTROL (PAKAI AI)
 let elInfo = document.getElementById("game-info");
 if (!elInfo) {
     elInfo = document.createElement("div");
@@ -142,7 +163,7 @@ if (!elInfo) {
     elInfo.style.borderRadius = "8px";
     elInfo.style.zIndex = "5";
     elInfo.innerHTML = `
-        <strong style="font-size:16px">🎮 KONTROL</strong><br>
+        <strong style="font-size:16px">🎮 KONTROL:</strong><br><br>
         ⬅️ ➡️ : Pindah Jalur<br>
         🅿️ : Pause Game
     `;
@@ -150,27 +171,73 @@ if (!elInfo) {
 }
 
 /* =================================================
-   5. RESET & SELECT CAR
+   5. MENU & GAME FUNCTIONS
 ================================================= */
-window.selectCar = (file) => {
-    if(elCarSelect) elCarSelect.style.display = "none";
+
+// Load mobil pertama
+loadPlayer(carList[currentCarIndex].file);
+
+window.changeCar = (direction) => {
+    currentCarIndex += direction;
+    if (currentCarIndex < 0) currentCarIndex = carList.length - 1;
+    if (currentCarIndex >= carList.length) currentCarIndex = 0;
+
+    elCarName.innerText = carList[currentCarIndex].name;
+    elCarStats.innerText = carList[currentCarIndex].stats;
+
+    if(player) scene.remove(player);
+    loadPlayer(carList[currentCarIndex].file);
+};
+
+window.startGame = () => {
+    // Terapkan Stats Mobil
+    activeSpeedMult = carList[currentCarIndex].speedMult;
+    activeHandling = carList[currentCarIndex].handlingVal;
+
+    gameState = 'PLAYING';
+    elMainMenu.style.display = 'none';
+    elHud.style.display = 'block';
+
+    if(player) {
+        player.rotation.y = Math.PI; 
+        player.position.set(0, 0.6, 0);
+    }
+
+    // Pindah Kamera ke mode balapan
+    camera.position.set(0, 5, 12);
+    camera.lookAt(0, 0, -5);
+
     resetGame();
-    loadPlayer(file);
 };
 
 function resetGame() {
     enemies.forEach(e => scene.remove(e)); enemies = [];
     powerups.forEach(p => scene.remove(p)); powerups = [];
-    if (player) { scene.remove(player); player = null; }
+    
+    // Reset Segmen Map (Bersihkan lalu buat ulang agar rapi)
+    activeMapSegments.forEach(s => scene.remove(s));
+    activeMapSegments = [];
+    // Regenerate Map jika template sudah ada
+    if (mapTemplate && forestTemplate) {
+        // Kita butuh lebar jalan, kita ambil dari skala template
+        const box = new THREE.Box3().setFromObject(mapTemplate);
+        const size = new THREE.Vector3(); box.getSize(size);
+        // Kita simpan parameter generate di variable global/closure atau panggil ulang logic load
+        // Agar simpel: kita panggil fungsi helper generate yang sama
+        // Asumsi lebar hutan dan jalan konstan sesuai template terakhir
+        const forestBox = new THREE.Box3().setFromObject(forestTemplate);
+        const forestSize = new THREE.Vector3(); forestBox.getSize(forestSize);
+        generateMapSegments(size.x, forestSize.x);
+    }
 
     score = 0;
     lives = 3;
     currentLane = 0;
     targetX = 0;
     
-    // Reset Speed
-    baseSpeedLevel = 0.5;
+    baseSpeedLevel = 0.4;
     speedBoost = 0;
+    currentLevel = 0;
     updateTotalSpeed();
 
     activePowerup = null;
@@ -178,17 +245,15 @@ function resetGame() {
     isPaused = false;
     isGameOver = false;
 
-    if(elSkor) elSkor.innerText = "0";
-    if(elNyawa) elNyawa.innerText = "❤️❤️❤️";
-    if(elGameOver) elGameOver.style.display = "none";
+    elSkor.innerText = "0";
+    elNyawa.innerText = "❤️❤️❤️";
+    elGameOver.style.display = "none";
     
-    // Reset Kamera
-    camera.position.set(0, 5, 12);
-    camera.rotation.z = 0; 
+    startCountdown();
 }
 
 function updateTotalSpeed() {
-    totalSpeed = baseSpeedLevel + speedBoost;
+    totalSpeed = (baseSpeedLevel * activeSpeedMult) + speedBoost;
 }
 
 function showNotif(text, color) {
@@ -198,57 +263,147 @@ function showNotif(text, color) {
     setTimeout(() => { elPowerupNotif.style.opacity = 0; }, 2000);
 }
 
-/* =================================================
-   6. LOAD ASSETS
-================================================= */
-function loadPlayer(file) {
-    loader.load(`/img/${file}`, gltf => {
-        player = gltf.scene;
-        const box = new THREE.Box3().setFromObject(player);
-        const size = new THREE.Vector3(); box.getSize(size);
-        player.scale.setScalar(2 / Math.max(size.x, size.y, size.z));
-        player.position.set(0, 0, 0);
-        player.rotation.y = Math.PI;
-        player.traverse(n => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; }});
-        scene.add(player);
-        checkReady();
+function scaleModel(obj, targetSize) {
+    const box = new THREE.Box3().setFromObject(obj);
+    const size = new THREE.Vector3(); box.getSize(size);
+    const maxAxis = Math.max(size.x, size.y, size.z);
+    const scale = targetSize / maxAxis;
+    obj.scale.set(scale, scale, scale);
+}
+
+function enableShadow(obj) {
+    obj.traverse(node => {
+        if (node.isMesh) {
+            node.castShadow = true;
+            node.receiveShadow = true;
+        }
     });
 }
 
+/* =================================================
+   6. LOADING ASSETS (CHAINING)
+================================================= */
+
+// A. Load Player
+function loadPlayer(file) {
+    loader.load(`/img/${file}`, gltf => {
+        player = gltf.scene;
+        scaleModel(player, 2.0); 
+        
+        // Posisi default
+        player.position.set(0, 0.6, 0);
+        player.rotation.y = Math.PI + 0.5; // Miring dikit di showroom
+
+        enableShadow(player);
+        scene.add(player);
+        
+        // Jika Map belum ada, load Map. Jika sudah, load Enemy.
+        if (!mapTemplate) {
+            loadMainMap();
+        } else if (!enemyTemplate) {
+            loadEnemyTemplate();
+        }
+    });
+}
+
+// B. Load Main Map
+function loadMainMap() {
+    loader.load('/img/map.glb', (gltf) => {
+        mapTemplate = gltf.scene;
+        enableShadow(mapTemplate);
+
+        const box = new THREE.Box3().setFromObject(mapTemplate);
+        const size = new THREE.Vector3(); box.getSize(size);
+        const scaleZ = MAP_LENGTH / size.z;
+        mapTemplate.scale.set(scaleZ, scaleZ, scaleZ);
+
+        loadForestMap(size.x * scaleZ); 
+    });
+}
+
+// C. Load Forest
+function loadForestMap(roadWidth) {
+    loader.load('/img/hutan.glb', (gltf) => {
+        forestTemplate = gltf.scene;
+        enableShadow(forestTemplate);
+
+        const box = new THREE.Box3().setFromObject(forestTemplate);
+        const size = new THREE.Vector3(); box.getSize(size);
+        const scaleZ = MAP_LENGTH / size.z;
+        forestTemplate.scale.set(scaleZ, scaleZ, scaleZ);
+
+        // Generate Map Pertama Kali
+        generateMapSegments(roadWidth, size.x * scaleZ);
+        
+        loadEnemyTemplate();
+    });
+}
+
+function generateMapSegments(roadWidth, forestWidth) {
+    const FOREST_Y = -0.5; 
+    const OVERLAP_KIRI = 2.9;   
+    const OVERLAP_KANAN = -2.0; 
+
+    const offsetLeft = (roadWidth / 2) + (forestWidth / 2) - OVERLAP_KIRI;
+    const offsetRight = (roadWidth / 2) + (forestWidth / 2) - OVERLAP_KANAN;
+
+    for (let i = 0; i < NUM_SEGMENTS; i++) {
+        const zPos = -(i * MAP_LENGTH);
+
+        // Jalan
+        const road = mapTemplate.clone();
+        road.position.set(0, 0, zPos);
+        scene.add(road);
+        activeMapSegments.push(road);
+
+        // Hutan Kiri
+        const leftForest = forestTemplate.clone();
+        leftForest.position.set(-offsetLeft, FOREST_Y, zPos); 
+        scene.add(leftForest);
+        activeMapSegments.push(leftForest);
+
+        // Hutan Kanan
+        const rightForest = forestTemplate.clone();
+        rightForest.position.set(offsetRight, FOREST_Y, zPos); 
+        scene.add(rightForest);
+        activeMapSegments.push(rightForest);
+        
+        // Hutan Lapis 2 (Optional, biar tebal)
+        const farOffsetLeft = offsetLeft + forestWidth - 1.0;
+        const farLeft = forestTemplate.clone();
+        farLeft.position.set(-farOffsetLeft, FOREST_Y, zPos);
+        scene.add(farLeft);
+        activeMapSegments.push(farLeft);
+
+        const farOffsetRight = offsetRight + forestWidth - 1.0;
+        const farRight = forestTemplate.clone();
+        farRight.position.set(farOffsetRight, FOREST_Y, zPos);
+        scene.add(farRight);
+        activeMapSegments.push(farRight);
+    }
+}
+
+// D. Load Enemy & Gift
 function loadEnemyTemplate() {
     loader.load("/img/musuh.glb", gltf => {
         enemyTemplate = gltf.scene;
-        const box = new THREE.Box3().setFromObject(enemyTemplate);
-        const size = new THREE.Vector3(); box.getSize(size);
-        enemyTemplate.scale.setScalar(2 / Math.max(size.x, size.y, size.z));
-        enemyTemplate.traverse(n => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; }});
-        checkReady();
+        scaleModel(enemyTemplate, 2.0);
+        enableShadow(enemyTemplate);
+        loadGiftTemplate();
     });
 }
 
 function loadGiftTemplate() {
     loader.load("/img/gift.glb", gltf => {
         giftTemplate = gltf.scene;
-        const box = new THREE.Box3().setFromObject(giftTemplate);
-        const size = new THREE.Vector3(); box.getSize(size);
-        giftTemplate.scale.setScalar(1.5 / Math.max(size.x, size.y, size.z));
-        giftTemplate.traverse(n => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; }});
-        checkReady();
+        scaleModel(giftTemplate, 1.5);
+        enableShadow(giftTemplate);
     }, undefined, (err) => {
-        console.error("Gagal load gift.glb", err);
         const geometry = new THREE.BoxGeometry(1, 1, 1);
         const material = new THREE.MeshPhongMaterial({ color: 0xffff00 });
         giftTemplate = new THREE.Mesh(geometry, material);
-        checkReady();
     });
 }
-
-function checkReady() {
-    if (player && enemyTemplate && giftTemplate) startCountdown();
-}
-
-loadEnemyTemplate();
-loadGiftTemplate();
 
 /* =================================================
    7. GAME LOGIC
@@ -277,25 +432,22 @@ function startCountdown() {
     }, 1000);
 }
 
-// SPAWN ENEMY
 setInterval(() => {
     if (!isGameRunning || isPaused || isGameOver || !enemyTemplate) return;
     const e = enemyTemplate.clone();
-    e.position.set((Math.floor(Math.random() * 3) - 1) * 2, 0.5, -80);
+    const randomLane = Math.floor(Math.random() * 3) - 1;
+    e.position.set(randomLane * LANE_WIDTH, 0.6, -80); // Y = 0.6
     e.rotation.y = 0; 
-    
-    // Properti untuk menandai apakah sudah dilewati (untuk skor)
     e.hasPassed = false; 
-
     scene.add(e);
     enemies.push(e);
-}, 1300); 
+}, 1300 / activeSpeedMult); // Spawn rate menyesuaikan kecepatan mobil
 
-// SPAWN POWERUP
 setInterval(() => {
     if (!isGameRunning || isPaused || isGameOver || !giftTemplate) return;
     const p = giftTemplate.clone();
-    p.position.set((Math.floor(Math.random() * 3) - 1) * 2, 1, -100);
+    const randomLane = Math.floor(Math.random() * 3) - 1;
+    p.position.set(randomLane * LANE_WIDTH, 1, -100);
     scene.add(p);
     powerups.push(p);
 }, 10000); 
@@ -304,6 +456,8 @@ setInterval(() => {
    8. INPUT
 ================================================= */
 document.addEventListener("keydown", e => {
+    if (gameState !== 'PLAYING') return; 
+
     if (e.key.toLowerCase() === "p" && isGameRunning) {
         isPaused = !isPaused;
         if(elPause) elPause.style.display = isPaused ? "block" : "none";
@@ -311,56 +465,59 @@ document.addEventListener("keydown", e => {
     if (!isPaused && isGameRunning) {
         if (e.key === "ArrowLeft" && currentLane > -1) currentLane--;
         if (e.key === "ArrowRight" && currentLane < 1) currentLane++;
-        targetX = currentLane * 2;
+        targetX = currentLane * LANE_WIDTH;
     }
 });
 
 /* =================================================
-   9. MAIN LOOP (PAKAI AI)
+   9. MAIN LOOP
 ================================================= */
 function animate() {
     requestAnimationFrame(animate);
     renderer.render(scene, camera);
+
+    // MODE SHOWROOM
+    if (gameState === 'MENU') {
+        if (player && !isDragging) {
+            player.rotation.y += 0.005; 
+        }
+        return;
+    }
+
     if (!isGameRunning || isPaused || isGameOver) return;
 
-    // --- LINGKUNGAN ---
-    roadLines.forEach(l => { l.position.z += totalSpeed; if (l.position.z > 10) l.position.z = -90; });
-    trees.forEach(t => {
-        t.position.z += totalSpeed;
-        if (t.position.z > 20) {
-            t.position.z = -80 - Math.random() * 20;
-            t.position.x = Math.random() > 0.5 ? -8 - Math.random() * 10 : 8 + Math.random() * 10;
-        }
-    });
+    // --- ANIMASI ENVIRONMENT (MAP GLB) ---
+    if (activeMapSegments.length > 0) {
+        activeMapSegments.forEach(segment => {
+            segment.position.z += totalSpeed;
+            if (segment.position.z > MAP_LENGTH) {
+                 segment.position.z -= NUM_SEGMENTS * MAP_LENGTH; 
+            }
+        });
+    }
 
-    // --- PLAYER ANIMATION (KEMBALI KE STANDAR) ---
+    // --- ANIMASI PLAYER (HANDLING STATS) ---
     if (player) {
         const deltaX = targetX - player.position.x;
         
-        // Gerakan
-        player.position.x += deltaX * 0.15; 
-
-        // Rotasi Belok (Subtle / Tidak Dramatis)
-        player.rotation.y = Math.PI - (deltaX * 0.1); 
+        // Pindah jalur dipengaruhi stats handling
+        player.position.x += deltaX * activeHandling; 
         
-        // Body Roll (Sedikit saja)
-        player.rotation.z = (deltaX * 0.05);
-
-        // Getaran Mesin
-        player.position.y = Math.sin(Date.now() * 0.01) * 0.02;
-
-        // Kamera Dinamis (Follow) - Tanpa rotasi miring
+        player.rotation.y = Math.PI - (deltaX * activeHandling); 
+        player.rotation.z = (deltaX * (activeHandling * 0.5));
+        
+        player.position.y = 0.6 + Math.sin(Date.now() * 0.01) * 0.02;
         camera.position.x += (player.position.x * 0.3 - camera.position.x) * 0.05;
-        camera.rotation.z = 0; // Pastikan kamera tegak
+        camera.rotation.z = 0; 
     }
 
-    // --- POWERUP LOGIC ---
+    // --- POWERUP ---
     powerups.forEach((p, index) => {
         p.position.z += totalSpeed;
         p.rotation.y += 0.05; 
         p.position.y = 1 + Math.sin(Date.now() * 0.005) * 0.2;
 
-        if (player && Math.abs(p.position.z - player.position.z) < 3.0 && Math.abs(p.position.x - player.position.x) < 1.2) {
+        if (player && Math.abs(p.position.z - player.position.z) < 3.0 && Math.abs(p.position.x - player.position.x) < 1.0) {
             if (Math.random() > 0.5) {
                 activePowerup = 'speed';
                 speedBoost = 0.6; 
@@ -375,7 +532,7 @@ function animate() {
             scene.remove(p);
             powerups.splice(index, 1);
         } 
-        else if (p.position.z > 20) { // Hilang di belakang layar
+        else if (p.position.z > 20) { 
             scene.remove(p);
             powerups.splice(index, 1);
         }
@@ -387,15 +544,13 @@ function animate() {
         updateTotalSpeed();
     }
 
-    // --- ENEMY LOGIC (PERBAIKAN: TIDAK HILANG SAAT LEWAT) ---
+    // --- ENEMY ---
     for (let i = enemies.length - 1; i >= 0; i--) {
         const e = enemies[i];
         e.position.z += totalSpeed;
-        e.position.y = 0.5 + Math.sin(Date.now() * 0.01 + i) * 0.02;
+        e.position.y = 0.6 + Math.sin(Date.now() * 0.01 + i) * 0.02;
 
-        // 1. CEK TABRAKAN
         if (player && Math.abs(e.position.z - player.position.z) < 2.5 && Math.abs(e.position.x - player.position.x) < 0.8) {
-            
             if (activePowerup === 'shield') {
                 scene.remove(e);
                 enemies.splice(i, 1);
@@ -421,28 +576,27 @@ function animate() {
             }
         } 
         
-        // 2. CEK SKOR (Hanya tambah skor, JANGAN HAPUS MOBIL)
-        // Gunakan flag 'hasPassed' agar skor tidak bertambah berkali-kali
         else if (e.position.z > player.position.z + 2 && !e.hasPassed) {
             score += 10;
             if(elSkor) elSkor.innerText = score;
-            
-            // Tandai sudah lewat
             e.hasPassed = true;
 
-            // Leveling
-            const newLevel = Math.floor(score / 50);
-            if (baseSpeedLevel < 1.5) { 
-                baseSpeedLevel += 0.012; 
-                updateTotalSpeed();
+            const calculatedLevel = Math.floor(score / 50);
+            if (calculatedLevel > currentLevel) {
+                currentLevel = calculatedLevel; 
+                if (baseSpeedLevel < 1.5) { 
+                    baseSpeedLevel += 0.05; 
+                    updateTotalSpeed();
+                    showNotif("🚀 SPEED UP!", "#ff0000"); 
+                }
             }
         }
 
-        // 3. HAPUS MOBIL JIKA SUDAH JAUH DI BELAKANG
-        if (e.position.z > 20) { // Angka 20 artinya sudah jauh di belakang kamera
+        if (e.position.z > 20) { 
             scene.remove(e);
             enemies.splice(i, 1);
         }
     }
 }
+
 animate();
